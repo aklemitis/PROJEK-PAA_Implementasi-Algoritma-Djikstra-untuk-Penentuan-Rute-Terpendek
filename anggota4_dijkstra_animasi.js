@@ -73,3 +73,55 @@ function buildRouteSVGPath(rp) {
   }
   return parts.join(' '); // [cite: 550]
 }
+
+
+// =========================================================================
+// ⏸️ FUNGSI KONTROL SISTEM ANIMASI (Tambahan Kontribusi Anggota 4)
+// =========================================================================
+function resetAnim(skipRender = false) {
+  animOn = false;
+  if (animFrame) cancelAnimationFrame(animFrame);
+  let b = document.getElementById('anim-btn');
+  if (b) { b.innerHTML = '🚗 Mulai Animasi Kurir'; b.classList.remove('active'); }
+  pathProgress = 0;
+  if (!skipRender) render();
+}
+
+function pauseAnim() {
+  animOn = false;
+  if (animFrame) cancelAnimationFrame(animFrame);
+  let b = document.getElementById('anim-btn');
+  if (b) { b.innerHTML = '▶️ Lanjutkan'; b.classList.remove('active'); }
+  
+  let gv = document.getElementById('g-vehicle');
+  if (gv && routeSvgPath && routePath.length >= 2) {
+    let totalLen = routeSvgPath.getTotalLength();
+    let travel = pathProgress >= 1 ? totalLen : (pathProgress * totalLen);
+    let pt = routeSvgPath.getPointAtLength(travel);
+    let pt2 = routeSvgPath.getPointAtLength(Math.min(travel + 2, totalLen));
+    let angle = Math.atan2(pt2.y - pt.y, pt2.x - pt.x) * 180 / Math.PI;
+    gv.innerHTML = '';
+    drawCar(gv, pt.x, pt.y, angle);
+  }
+}
+
+function toggleAnim() {
+  let b = document.getElementById('anim-btn');
+  if (!b) return;
+  if (animOn) {
+    pauseAnim();
+  } else if (pathProgress >= 1) {
+    pathProgress = 0;
+    b.innerHTML = '🚗 Mulai Animasi Kurir';
+    b.classList.remove('active');
+    render();
+  } else {
+    if (routePath.length < 2) { alert('Rute gagal dihitung.'); return; }
+    animOn = true;
+    b.innerHTML = '⏸ Hentikan';
+    b.classList.add('active');
+    animLoop();
+  }
+}
+
+

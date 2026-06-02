@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Smart City Courier - Dijkstra Realtime</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#1a2a1a;color:#eee}
+#app{max-width:1400px;margin:0 auto;padding:12px}
+h1{font-size:16px;font-weight:600;margin-bottom:10px;color:#ddd}
+#toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 12px;background:#1e1e1e;border:1px solid #444;border-radius:10px;margin-bottom:10px}
+.btn{padding:6px 14px;border-radius:7px;border:1px solid #555;background:#333;color:#ddd;font-size:12px;cursor:pointer;transition:all 0.15s}
+.btn:hover{background:#444}
+.btn.active{background:#5a2500;color:#f8961e;border-color:#f8961e}
+
+/* Layout utama: peta di kiri, log panel di kanan */
+#main-layout{display:flex;gap:10px;align-items:flex-start}
+#map-wrap{flex:1;min-width:0;height:580px;overflow:hidden;position:relative;border:1.5px solid #555;border-radius:12px;cursor:grab;background:#3a5a2a}
+#map-wrap:active{cursor:grabbing}
+#map-svg{position:absolute;top:0;left:0;transform-origin:0 0}
+
+/* ===== PANEL LOG KOMPUTASI ===== */
+#log-panel{width:320px;flex-shrink:0;height:580px;display:flex;flex-direction:column;background:#0d1117;border:1.5px solid #30363d;border-radius:12px;overflow:hidden}
+#log-header{padding:8px 12px;background:#161b22;border-bottom:1px solid #30363d;display:flex;justify-content:space-between;align-items:center}
+#log-header span{font-size:12px;font-weight:600;color:#58a6ff}
+#log-clear-btn{font-size:10px;padding:2px 8px;border-radius:4px;border:1px solid #30363d;background:#21262d;color:#8b949e;cursor:pointer}
+#log-clear-btn:hover{background:#30363d;color:#ccc}
+#log-body{flex:1;overflow-y:auto;padding:8px;font-family:'Courier New',monospace;font-size:11px;line-height:1.6;scrollbar-width:thin;scrollbar-color:#30363d #0d1117}
+#log-body::-webkit-scrollbar{width:5px}
+#log-body::-webkit-scrollbar-track{background:#0d1117}
+#log-body::-webkit-scrollbar-thumb{background:#30363d;border-radius:3px}
+.log-entry{margin-bottom:2px;padding:1px 0}
+.log-init{color:#58a6ff}
+.log-extract{color:#f0e68c}
+.log-relax{color:#7ee787}
+.log-skip{color:#484f58}
+.log-backtrack{color:#ffa657}
+.log-success{color:#3fb950;font-weight:bold}
+.log-error{color:#f85149}
+.log-separator{color:#30363d;margin:4px 0}
+
+#legend{display:flex;flex-wrap:wrap;gap:6px 12px;padding:8px 12px;background:#1e1e1e;border:1px solid #444;border-radius:10px;margin-top:10px;font-size:11px;color:#aaa}
+.leg-item{display:flex;align-items:center;gap:4px}
+.leg-dot{width:12px;height:12px;border-radius:3px;flex-shrink:0}
+#zoominfo{font-size:11px;color:#888;margin-left:auto}
+#status{font-size:13px;color:#ccc;padding:8px 12px;background:#1e1e1e;border:1px solid #444;border-radius:10px;margin-bottom:10px;display:flex;gap:20px;flex-wrap:wrap}
+#status .route-label{font-weight:600}
+#status .start-label{color:#2b8c4a}
+#status .finish-label{color:#c23b22}
+#speed-control{display:flex;align-items:center;gap:6px;font-size:12px;color:#aaa}
+#speed-control input[type=range]{width:80px;accent-color:#f8961e}
+#speed-input{width:45px;padding:2px 4px;border-radius:4px;border:1px solid #555;background:#222;color:#f8961e;font-size:12px;font-weight:600;text-align:center}
+#speed-input:focus{outline:1px solid #f8961e;border-color:#f8961e}
+.select-rute{padding:6px 10px;border-radius:7px;border:1px solid #555;background:#222;color:#fff;font-size:12px;outline:none;cursor:pointer}
+.select-rute:focus{border-color:#f8961e}
+.label-pilih{font-size:12px;color:#bbb;margin-left:4px}
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>🏙️ Smart City Courier — Simulasi Dijkstra Terpendek Realtime</h1>
+  <div id="toolbar">
+    <button class="btn" onclick="generateMap()">🗺️ Acak Peta</button>
+    <span class="label-pilih">🛫 Awal:</span>
+    <select id="select-start" class="select-rute"></select>
+    <span class="label-pilih">🛬 Tujuan:</span>
+    <select id="select-end" class="select-rute"></select>
+    <button class="btn active" onclick="hitungRuteManual()">⚡ Hitung Rute</button>
+    <button class="btn" id="anim-btn" onclick="toggleAnim()">🚗 Mulai Animasi Kurir</button>
+    <div id="speed-control">
+      <span>🏎️ Laju:</span>
+      <input type="range" id="speed-slider" min="10" max="120" value="40" oninput="syncSpeed(this.value)">
+      <input type="number" id="speed-input" min="10" max="200" value="40" onchange="syncSpeedInput(this.value)">
+      <span style="color:#888;font-size:10px">km/h</span>
+    </div>
+    <button class="btn" onclick="zoom(1.25)">🔍 Zoom In</button>
+    <button class="btn" onclick="zoom(0.8)">🔍 Zoom Out</button>
+    <button class="btn" onclick="resetView()">⌂ Reset View</button>
+    <span id="zoominfo">Zoom: 100%</span>
+  </div>
+  <div id="status"></div>
+
+  <!-- Layout utama: Peta + Panel Log -->
+  <div id="main-layout">
+    <div id="map-wrap">
+      <svg id="map-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+
+    <!-- ===== PANEL LOG KOMPUTASI DIJKSTRA ===== -->
+    <div id="log-panel">
+      <div id="log-header">
+        <span>📋 Log Komputasi Dijkstra</span>
+        <button id="log-clear-btn" onclick="clearLog()">🗑 Bersihkan</button>
+      </div>
+      <div id="log-body">
+        <div class="log-entry log-init">// Tekan "Hitung Rute" untuk memulai.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="legend"></div>
+</div>
+<script src="anggota3_map.js"></script>
+<script src="anggota1_dijkstra_inti.js"></script>
+<script src="anggota2_dijkstra_helper.js"></script>
+<script src="scale_px_to_meter.js"></script>
+<script src="anggota4_animasi.js"></script>
+</body>
+</html>

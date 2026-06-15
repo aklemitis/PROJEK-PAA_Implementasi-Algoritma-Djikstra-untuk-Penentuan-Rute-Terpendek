@@ -1,4 +1,39 @@
 // ========================================================
+// 🗺️ VARIABEL GLOBAL PATH ANIMASI & FUNGSI PENDUKUNG
+// ========================================================
+let routeSvgPath = null; // Referensi ke SVG <path> rute aktif (diisi oleh render())
+
+// Mengembalikan posisi dan sudut hadap kendaraan berdasarkan pathProgress [0..1]
+function getVehiclePos() {
+  if (!routeSvgPath || routePath.length < 2) return null;
+  let totalLen = routeSvgPath.getTotalLength();
+  let travel = pathProgress >= 1 ? totalLen : (pathProgress * totalLen);
+  let pt  = routeSvgPath.getPointAtLength(travel);
+  let pt2 = routeSvgPath.getPointAtLength(Math.min(travel + 2, totalLen));
+  let angle = Math.atan2(pt2.y - pt.y, pt2.x - pt.x) * 180 / Math.PI;
+  return { x: pt.x, y: pt.y, angle };
+}
+
+// Pop-up status bar saat kurir tiba di tujuan
+function tampilNotifikasiTiba() {
+  let en = nodes[endN];
+  let nama = en ? en.asset.label : 'Tujuan';
+  let totalPx = 0;
+  for (let i = 0; i < routePath.length - 1; i++) {
+    let fromId = routePath[i], toId = routePath[i + 1];
+    let e = edges.find(e => (e.a === fromId && e.b === toId) || (e.a === toId && e.b === fromId));
+    totalPx += e ? e.bezierLen : Math.hypot(nodes[fromId].x - nodes[toId].x, nodes[fromId].y - nodes[toId].y);
+  }
+  let statusEl = document.getElementById('status');
+  if (statusEl) {
+    statusEl.innerHTML =
+      `<span style="color:#3fb950;font-weight:700;font-size:13px">📦 Paket Terkirim! ${nama} tercapai</span>` +
+      `<span style="color:#888;font-size:11px"> | Jarak tempuh: <b style="color:#f8961e">${formatJarak(totalPx)}</b></span>` +
+      `<span style="color:#888;font-size:11px"> | Tekan 🔁 untuk ulangi</span>`;
+  }
+}
+
+// ========================================================
 // 📐 SISTEM KONVERSI JARAK (Sesuai Laporan Anggota 4)
 // ========================================================
 const SCALE_PX_TO_METER = 2; // 1 piksel SVG = 2 meter [cite: 509]
@@ -123,5 +158,3 @@ function toggleAnim() {
     animLoop();
   }
 }
-
-
